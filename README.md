@@ -22,7 +22,7 @@
 
 ## 2. Generar ejecutable con PyInstaller
 
-`pyinstaller -F --onefile main.py`
+`pyinstaller --onefile main.py`
 
 `chmod +x dist/main`
 
