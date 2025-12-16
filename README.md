@@ -1,5 +1,5 @@
 # Memoria
-## 1. Ejecutar con Python
+## Ejecutar con Python
 
 ### Clonar repo
 `git clone https://github.com/aledzs/GDBFrontendMemoria.git`
@@ -19,11 +19,3 @@
 ### Ejecutar el programa
 
 `python main.py <binario>`
-
-## 2. Generar ejecutable con PyInstaller
-
-`pyinstaller --onefile main.py`
-
-`chmod +x dist/main`
-
-`dist/main <binario>`
