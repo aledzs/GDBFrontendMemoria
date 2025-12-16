@@ -43,7 +43,7 @@ class CodeViewer(QPlainTextEdit):
 
         if file_path:
             self.file_path = file_path
-                
+
         self.line_number_area = LineNumberArea(self)
         self.breakpoints = set()
         self.current_line = None
@@ -143,8 +143,7 @@ class CodeViewer(QPlainTextEdit):
                 # Line number text
                 number_x = 2 * bp_margin + 2 * bp_radius
                 painter.restore()
-                painter.drawText(number_x, int(top), self.line_number_area.width() - number_x - 2,
-                                 fm.height(), Qt.AlignRight, number)
+                painter.drawText(number_x, int(top), self.line_number_area.width() - number_x - 2, fm.height(), Qt.AlignRight, number)
 
             block = block.next()
             top = bottom

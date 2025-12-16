@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSplitter, QLabel, QToolBar, QPlainTextEdit, QLineEdit, QListWidget, QListView
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QSplitter, QLabel, QToolBar, QPlainTextEdit, QLineEdit, QListWidget
 from pygdbmi.gdbcontroller import GdbController
 from source.code_viewer import CodeViewer
 
@@ -13,8 +13,8 @@ class MainWindow(QWidget):
         self.program_path = program_path
         self.source_path = ""
         
-        self.sources = []
-        self.sources2 = {}
+        # self.sources = []
+        # self.sources2 = {}
         
         self.gdb = GdbController()
         
@@ -256,7 +256,7 @@ class MainWindow(QWidget):
         # self.print_message_console(result)
         
     def backtrace_window_on_item_click(self, item):
-        result = self.gdb.write(f"-stack-select-frame {item.text()[1]}")
+        result = self.gdb.write(f"-stack-select-frame {item.text().split(" ")[0][1:]}")
         # print(result)
         result2 = self.gdb.write("-stack-info-frame")
         # print(result2)
@@ -334,14 +334,13 @@ class MainWindow(QWidget):
             # self.sources2[file["fullname"]] = file["fullname"].split("/")[-1]
             
     def file_browser_item_clicked(self, item):
-        file_path = ""
-        for file in self.sources:
-            if file["fullname"] == item.text():
-                file_path = file["fullname"]
+        self.code_viewer.file_path = item.text()
+        # for file in self.sources:
+        #     if file["fullname"] == item.text():
+        #         self.code_viewer.file_path = file["fullname"]
         # for key in self.sources2:
         #     if self.sources2[key] == item.text():
         #         file_path = key
-        # self.code_viewer.file_path = file_path
         
     def get_local_variables(self):
         result = self.gdb.write("-stack-list-variables --all-values")
