@@ -182,13 +182,7 @@ class MainWindow(QWidget):
         
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            # print(frame["line"])
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
         
         result2 = self.gdb.write('-interpreter-exec console "set scheduler-locking step"')
         self.print_message_console(result2)
@@ -200,6 +194,17 @@ class MainWindow(QWidget):
             if record["type"] == "notify" and record["message"] == "stopped":
                 return record.get("payload", {}).get("frame", {})
         return {}
+    
+    def change_context(self, frame):
+        try:
+            if frame and "line" in frame:
+                self.code_viewer.set_current_line(frame["line"])
+                
+            if frame and "fullname" in frame:
+                self.code_viewer.file_path = frame["fullname"]
+                self.code_viewer.loaded_path = frame["fullname"]
+        except Exception as e:
+            print(f"Error: {e}")
 
     def post_exec(self, result):
         self.print_message_console(result)
@@ -229,12 +234,7 @@ class MainWindow(QWidget):
         frame = self.extract_stopped_frame(result)
         # print(frame)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
         
@@ -242,12 +242,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-next --reverse")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
 
@@ -255,12 +250,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-step")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
         
@@ -268,12 +258,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-step --reverse")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
 
@@ -281,12 +266,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-continue")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
         
@@ -294,12 +274,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-continue --reverse")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
             
         self.post_exec(result)
         
@@ -307,12 +282,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-finish")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
 
         self.post_exec(result)
         
@@ -320,12 +290,7 @@ class MainWindow(QWidget):
         result = self.gdb.write("-exec-finish --reverse")
         frame = self.extract_stopped_frame(result)
         
-        if frame and "line" in frame:
-            self.code_viewer.set_current_line(frame["line"])
-            
-        if frame and "fullname" in frame:
-            self.code_viewer.file_path = frame["fullname"]
-            self.code_viewer.loaded_path = frame["fullname"]
+        self.change_context(frame)
 
         self.post_exec(result)
         
