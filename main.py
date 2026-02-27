@@ -350,7 +350,8 @@ class MainWindow(QWidget):
         # self.print_message_console(result)
         
     def backtrace_window_on_item_click(self, item):
-        result = self.gdb.write(f"-stack-select-frame {item.text().split(" ")[0][1:]}")
+        frame_id = item.text().split(" ")[0][1:]
+        result = self.gdb.write(f"-stack-select-frame {frame_id}")
         # print(result)
         result2 = self.gdb.write("-stack-info-frame")
         # print(result2)
@@ -373,9 +374,12 @@ class MainWindow(QWidget):
             for thread in result[0]["payload"]["threads"]:
                 thread_id = thread["id"]
                 thread_target_id = thread["target-id"]
+                thread_target_id_split = thread_target_id.split("(")[0].strip()
                 thread_name = thread.get("name", "")
                 thread_frame = thread.get("frame", {})
-                self.threads_window.addItem(f"#{thread_id} {thread_target_id.split("(")[0].strip()} () at {thread_frame.get("file", "?")}:{thread_frame.get("line", "?")}")
+                thread_frame_file = thread_frame.get("file", "?")
+                thread_frame_line = thread_frame.get("line", "?")
+                self.threads_window.addItem(f"#{thread_id} {thread_target_id_split} () at {thread_frame_file}:{thread_frame_line}")
         except Exception as e:
             print(f"Error: {e}")
     
