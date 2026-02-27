@@ -1,4 +1,5 @@
 import sys
+from pprint import pprint, pformat
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QSplitter, QLabel, QToolBar, QPlainTextEdit, QLineEdit, QListWidget
 from pygdbmi.gdbcontroller import GdbController
@@ -31,22 +32,48 @@ class MainWindow(QWidget):
         next_btn = QPushButton("Next")
         next_btn.clicked.connect(self.next_line)
         toolbar.addWidget(next_btn)
+        
+        self.prev_btn = QPushButton("Prev")
+        self.prev_btn.clicked.connect(self.prev_line)
+        self.prev_btn.setEnabled(False)
+        toolbar.addWidget(self.prev_btn)
 
         step_btn = QPushButton("Step In")
         step_btn.clicked.connect(self.step_in)
         toolbar.addWidget(step_btn)
+        
+        self.step_out_btn = QPushButton("Step Out")
+        self.step_out_btn.clicked.connect(self.step_out)
+        self.step_out_btn.setEnabled(False)
+        toolbar.addWidget(self.step_out_btn)
 
         continue_btn = QPushButton("Continue")
         continue_btn.clicked.connect(self.on_continue)
         toolbar.addWidget(continue_btn)
+        
+        self.continue_reverse_btn = QPushButton("Continue R")
+        self.continue_reverse_btn.clicked.connect(self.continue_reverse)
+        self.continue_reverse_btn.setEnabled(False)
+        toolbar.addWidget(self.continue_reverse_btn)
 
         finish_btn = QPushButton("Finish")
         finish_btn.clicked.connect(self.on_finish_click)
         toolbar.addWidget(finish_btn)
         
+        self.finish_reverse_btn = QPushButton("Finish R")
+        self.finish_reverse_btn.clicked.connect(self.finish_reverse)
+        self.finish_reverse_btn.setEnabled(False)
+        toolbar.addWidget(self.finish_reverse_btn)
+        
         until_btn = QPushButton("Until")
         until_btn.clicked.connect(self.on_until_click)
         toolbar.addWidget(until_btn)
+        
+        reverse_debug_btn = QPushButton("Enable Reverse Debugging")
+        reverse_debug_btn.clicked.connect(self.enable_reverse_debugging)
+        toolbar.addWidget(reverse_debug_btn)
+        
+        self.reverse_debug_enabled = False
 
         left_vertical_splitter = QSplitter(Qt.Orientation.Vertical)
 
@@ -69,6 +96,16 @@ class MainWindow(QWidget):
         backtrace_widget = QWidget()
         backtrace_widget.setLayout(backtrace_layout)
         left_vertical_splitter.addWidget(backtrace_widget)
+        
+        # Threads
+        threads_layout = QVBoxLayout()
+        threads_layout.addWidget(QLabel("<b>Threads</>"))
+        self.threads_window = QListWidget()
+        self.threads_window.itemClicked.connect(self.threads_window_on_item_click)
+        threads_layout.addWidget(self.threads_window)
+        threads_widget = QWidget()
+        threads_widget.setLayout(threads_layout)
+        left_vertical_splitter.addWidget(threads_widget)
         
         middle_vertical_splitter = QSplitter(Qt.Orientation.Vertical)
         
@@ -140,9 +177,11 @@ class MainWindow(QWidget):
 
     # Toolbar button functions
     def run_program(self):
+        
         result = self.gdb.write("-exec-run")
-        message = result[-1]
-        frame = message.get("payload", {}).get("frame", {})
+        
+        frame = self.extract_stopped_frame(result)
+        
         if frame and "line" in frame:
             # print(frame["line"])
             self.code_viewer.set_current_line(frame["line"])
@@ -151,57 +190,96 @@ class MainWindow(QWidget):
             self.code_viewer.file_path = frame["fullname"]
             self.code_viewer.loaded_path = frame["fullname"]
         
+        result2 = self.gdb.write('-interpreter-exec console "set scheduler-locking step"')
+        self.print_message_console(result2)
+        
+        self.post_exec(result)
+
+    def extract_stopped_frame(self, result):
+        for record in result:
+            if record["type"] == "notify" and record["message"] == "stopped":
+                return record.get("payload", {}).get("frame", {})
+        return {}
+
+    def post_exec(self, result):
         self.print_message_console(result)
         self.print_watched_variables()
         self.backtrace_refresh()
+        self.threads_refresh()
         self.get_local_variables()
+        
+    def enable_reverse_debugging(self):
+        if self.reverse_debug_enabled == False:
+            result3 = self.gdb.write('-interpreter-exec console "target record-full"')
+            
+            self.reverse_debug_enabled = True
+            self.prev_btn.setEnabled(True)
+            self.step_out_btn.setEnabled(True)
+            self.continue_reverse_btn.setEnabled(True)
+            self.finish_reverse_btn.setEnabled(True)
+            
+            self.print_message_console(result3)
+        else:
+            print("Reverse debugging is already enabled")
 
     def next_line(self):
         result = self.gdb.write("-exec-next")
-        message = result[-1]
-        frame = message.get("payload", {}).get("frame", {})
+        # message = result[-1]
+        # pprint(result)
+        frame = self.extract_stopped_frame(result)
+        # print(frame)
         
         if frame and "line" in frame:
-            # print(frame["line"])
             self.code_viewer.set_current_line(frame["line"])
             
         if frame and "fullname" in frame:
             self.code_viewer.file_path = frame["fullname"]
             self.code_viewer.loaded_path = frame["fullname"]
-            # print(frame["fullname"])
-            # print(self.source_path)
-            # print(self.code_viewer.file_path)
             
-        self.print_message_console(result)
-        self.print_watched_variables()
-        self.backtrace_refresh()
-        self.get_local_variables()
+        self.post_exec(result)
+        
+    def prev_line(self):
+        result = self.gdb.write("-exec-next --reverse")
+        frame = self.extract_stopped_frame(result)
+        
+        if frame and "line" in frame:
+            self.code_viewer.set_current_line(frame["line"])
+            
+        if frame and "fullname" in frame:
+            self.code_viewer.file_path = frame["fullname"]
+            self.code_viewer.loaded_path = frame["fullname"]
+            
+        self.post_exec(result)
 
     def step_in(self):
         result = self.gdb.write("-exec-step")
-        message = result[-1]
-        frame = message.get("payload", {}).get("frame", {})
+        frame = self.extract_stopped_frame(result)
         
         if frame and "line" in frame:
-            # print(frame["line"])
             self.code_viewer.set_current_line(frame["line"])
             
         if frame and "fullname" in frame:
             self.code_viewer.file_path = frame["fullname"]
             self.code_viewer.loaded_path = frame["fullname"]
-            # print(frame["fullname"])
-            # print(self.source_path)
-            # print(self.code_viewer.file_path)
             
-        self.print_message_console(result)
-        self.print_watched_variables()
-        self.backtrace_refresh()
-        self.get_local_variables()
+        self.post_exec(result)
+        
+    def step_out(self):
+        result = self.gdb.write("-exec-step --reverse")
+        frame = self.extract_stopped_frame(result)
+        
+        if frame and "line" in frame:
+            self.code_viewer.set_current_line(frame["line"])
+            
+        if frame and "fullname" in frame:
+            self.code_viewer.file_path = frame["fullname"]
+            self.code_viewer.loaded_path = frame["fullname"]
+            
+        self.post_exec(result)
 
     def on_continue(self):
         result = self.gdb.write("-exec-continue")
-        message = result[-1]
-        frame = message.get("payload", {}).get("frame", {})
+        frame = self.extract_stopped_frame(result)
         
         if frame and "line" in frame:
             self.code_viewer.set_current_line(frame["line"])
@@ -210,15 +288,24 @@ class MainWindow(QWidget):
             self.code_viewer.file_path = frame["fullname"]
             self.code_viewer.loaded_path = frame["fullname"]
             
-        self.print_message_console(result)
-        self.print_watched_variables()
-        self.backtrace_refresh()
-        self.get_local_variables()
+        self.post_exec(result)
+        
+    def continue_reverse(self):
+        result = self.gdb.write("-exec-continue --reverse")
+        frame = self.extract_stopped_frame(result)
+        
+        if frame and "line" in frame:
+            self.code_viewer.set_current_line(frame["line"])
+            
+        if frame and "fullname" in frame:
+            self.code_viewer.file_path = frame["fullname"]
+            self.code_viewer.loaded_path = frame["fullname"]
+            
+        self.post_exec(result)
         
     def on_finish_click(self):
         result = self.gdb.write("-exec-finish")
-        message = result[-1]
-        frame = message.get("payload", {}).get("frame", {})
+        frame = self.extract_stopped_frame(result)
         
         if frame and "line" in frame:
             self.code_viewer.set_current_line(frame["line"])
@@ -227,17 +314,24 @@ class MainWindow(QWidget):
             self.code_viewer.file_path = frame["fullname"]
             self.code_viewer.loaded_path = frame["fullname"]
 
-        self.print_message_console(result)
-        self.print_watched_variables()
-        self.backtrace_refresh()
-        self.get_local_variables()
+        self.post_exec(result)
+        
+    def finish_reverse(self):
+        result = self.gdb.write("-exec-finish --reverse")
+        frame = self.extract_stopped_frame(result)
+        
+        if frame and "line" in frame:
+            self.code_viewer.set_current_line(frame["line"])
+            
+        if frame and "fullname" in frame:
+            self.code_viewer.file_path = frame["fullname"]
+            self.code_viewer.loaded_path = frame["fullname"]
+
+        self.post_exec(result)
         
     def on_until_click(self):
         result = self.gdb.write("-exec-until")
-        self.print_message_console(result)
-        self.print_watched_variables()
-        self.backtrace_refresh()
-        self.get_local_variables()
+        self.post_exec(result)
         
     # Backtrace window functions
     def backtrace_refresh(self):
@@ -260,16 +354,50 @@ class MainWindow(QWidget):
         # print(result)
         result2 = self.gdb.write("-stack-info-frame")
         # print(result2)
-        self.code_viewer.file_path = result2[0]["payload"]["frame"]["fullname"]
-        self.code_viewer.set_current_line(result2[0]["payload"]["frame"]["line"])
-        self.get_frame_variables(result2[0]["payload"]["frame"]["level"])
+        try:
+            self.code_viewer.file_path = result2[0]["payload"]["frame"]["fullname"]
+            self.code_viewer.set_current_line(result2[0]["payload"]["frame"]["line"])
+            self.get_frame_variables(result2[0]["payload"]["frame"]["level"])
+        except Exception as e:
+            print(f"Error: {e}")
+        
         self.print_message_console(result)
         self.print_message_console(result2)
+    
+    def threads_refresh(self):
+        self.threads_window.clear()
+        result = self.gdb.write("-thread-info")
+        # pprint(result)
+        try:
+            self.current_thread = result[0]["payload"]["current-thread-id"]
+            for thread in result[0]["payload"]["threads"]:
+                thread_id = thread["id"]
+                thread_target_id = thread["target-id"]
+                thread_name = thread.get("name", "")
+                thread_frame = thread.get("frame", {})
+                self.threads_window.addItem(f"#{thread_id} {thread_target_id.split("(")[0].strip()} () at {thread_frame.get("file", "?")}:{thread_frame.get("line", "?")}")
+        except Exception as e:
+            print(f"Error: {e}")
+    
+    def threads_window_on_item_click(self, item):
+        thread_id = item.text().split(" ")[0][1:]
+        result = self.gdb.write(f"-thread-select {thread_id}")
+        
+        pprint(result)
+        
+        self.current_thread = thread_id
+        try:
+            self.code_viewer.file_path = result[0]["payload"]["frame"]["fullname"]
+            self.code_viewer.set_current_line(result[0]["payload"]["frame"]["line"])
+        except Exception as e:
+            print(f"Error: {e}")
+        
+        self.post_exec(result)
     
     def on_breakpoint_toggle(self, line, is_set, file):
         if is_set:
             # print(f"Breakpoint toggled off in line {line}")
-            result = self.gdb.write(f"clear {file}:{line}")
+            result = self.gdb.write(f'-interpreter-exec console "clear {file}:{line}"')
             self.print_message_console(result)
         else:
             # print(f"Breakpoint toggled on in line {line}")
@@ -303,11 +431,13 @@ class MainWindow(QWidget):
     # Command line function
     def send_command(self):
         command = self.command_line.text().strip()
-        result = self.gdb.write(command)
         self.command_line.clear()
         # print(result)
+        self.debug_output.appendPlainText(command)
         if command.startswith("-"):
-            self.debug_output.appendPlainText(command)
+            result = self.gdb.write(command)
+        else:
+            result = self.gdb.write(f'-interpreter-exec console "{command}"')
         self.print_message_console(result)
     
     def get_source_file(self):
@@ -356,7 +486,7 @@ class MainWindow(QWidget):
                 self.local_variables.addItem(f"{name} = {value}")
             
     def get_frame_variables(self, frame):
-        result = self.gdb.write(f"-stack-list-variables --thread 1 --frame {frame} --all-values")
+        result = self.gdb.write(f"-stack-list-variables --thread {self.current_thread} --frame {frame} --all-values")
         self.local_variables.clear()
         # print(result)
         for var in result[0]["payload"]["variables"]:
